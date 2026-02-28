@@ -60,21 +60,36 @@ scripts/unlink-status.sh
 
 ## How it works
 
-```
-Player (unlink-cli)          Escrow Service (this)          Winner
-    |                              |                          |
-    |-- private send (ZK) -------->|                          |
-    |   returns relayId            |                          |
-    |                              |                          |
-    |   bid-verify(relayId) ------>|  polls relay, confirms   |
-    |                              |  stores in bids.db       |
-    |                              |                          |
-    |                              |-- distribute(addr, amt) ->|
-    |                              |   private send (ZK)       |
-    |                              |   double-send blocked     |
+```mermaid
+sequenceDiagram
+    participant P as Player<br/>unlink-cli
+    participant Pool as Unlink Privacy Pool<br/>ZK Proofs
+    participant E as Escrow Service<br/>OpenClaw Agent
+    participant W as Winner
+
+    rect rgb(45, 25, 60)
+        Note over P,Pool: Private Bid (hidden on-chain)
+        P->>Pool: deposit + ZK send
+        Pool-->>E: encrypted transfer
+        P-->>E: relayId
+    end
+
+    rect rgb(25, 45, 60)
+        Note over E,E: Verification
+        E->>Pool: poll relay status
+        Pool-->>E: confirmed
+        E->>E: store bid in bids.db
+    end
+
+    rect rgb(25, 60, 40)
+        Note over E,W: Prize Distribution (hidden on-chain)
+        E->>Pool: ZK send to winner
+        Pool-->>W: encrypted transfer
+        E->>E: record in distributions<br/>block double-send
+    end
 ```
 
-All transfers go through the Unlink privacy pool. On-chain observers see pool interactions, not who paid whom or how much.
+All transfers route through the Unlink privacy pool — on-chain observers see pool contract calls, never who paid whom or how much.
 
 ## Environment variables
 
